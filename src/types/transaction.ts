@@ -28,7 +28,7 @@ export const transactionUpdateSchema = transactionSchema.partial().extend({
 });
 
 export const transactionQuerySchema = z.object({
-  userId: z.string().min(1),
+  // userId: z.string().min(1),
   startDate: z.string().datetime().optional(),
   endDate: z.string().datetime().optional(),
   category: z.string().optional(),
