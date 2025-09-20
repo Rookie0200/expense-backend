@@ -69,6 +69,7 @@ export const getTransactions = async (req: Request, res: Response) => {
 export const addTransaction = async (req: Request, res: Response) => {
   try {
     const validatedData = transactionSchema.safeParse(req.body);
+    console.log("Adding transaction with body:", validatedData.data);
     if (!validatedData.success) {
       return res.status(400).json({ error: "Missing required fields" });
     }
@@ -76,7 +77,15 @@ export const addTransaction = async (req: Request, res: Response) => {
     if (!userId) {
       return res.status(401).json({ error: "Unauthorized" });
     }
-    const transaction = new Transaction(validatedData.data);
+    console.log("Creating transaction for user:", userId);
+    const transaction = new Transaction({
+      userId: userId,
+      amount: validatedData.data.amount,
+      description: validatedData.data.description,
+      date: validatedData.data.date,
+      type: validatedData.data.type,
+      category: validatedData.data.category,
+    });
     await transaction.save();
     res.status(201).json(transaction);
   } catch (err) {

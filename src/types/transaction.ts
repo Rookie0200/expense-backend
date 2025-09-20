@@ -6,7 +6,14 @@ export const transactionSchema = z.object({
     .string()
     .min(1, "Description is required")
     .max(200, "Description too long"),
-  date: z.string().datetime("Invalid date format"),
+  date: z.string().refine(
+    (val) =>
+      // ISO YYYY-MM-DD or full ISO datetime
+      /^\d{4}-\d{2}-\d{2}(T.*)?$/.test(val) ||
+      // DD-MM-YYYY
+      /^\d{2}-\d{2}-\d{4}$/.test(val),
+    "Date must be in YYYY-MM-DD, full ISO, or DD-MM-YYYY format"
+  ),
   type: z.enum(["income", "expense"]),
   category: z
     .enum([
@@ -20,7 +27,7 @@ export const transactionSchema = z.object({
       "Other",
     ])
     .optional(),
-  userId: z.string().min(1, "User ID is required"),
+  // userId: z.string().min(1, "User ID is required"),
 });
 
 export const transactionUpdateSchema = transactionSchema.partial().extend({
