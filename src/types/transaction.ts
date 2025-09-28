@@ -38,6 +38,7 @@ export const transactionQuerySchema = z.object({
   // userId: z.string().min(1),
   startDate: z.string().datetime().optional(),
   endDate: z.string().datetime().optional(),
+  lastDate: z.string().datetime().optional(),
   category: z.string().optional(),
   type: z.enum(["income", "expense"]).optional(),
   page: z.coerce.number().min(1).default(1),

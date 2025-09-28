@@ -17,7 +17,9 @@ export const getTransactions = async (req: Request, res: Response) => {
       return res.status(400).json({ error: "Missing required fields" });
     }
 
-    const { startDate, endDate, category, type, page, limit } =
+    // const { startDate, endDate, category, type, page, limit } =
+    //   validatedQuery.data;
+    const { startDate, endDate, category, type, page, limit, lastDate } =
       validatedQuery.data;
     const userId = req.userId;
 
@@ -26,7 +28,43 @@ export const getTransactions = async (req: Request, res: Response) => {
     }
 
     // Build filter
+    // const filter: any = { userId };
+    // if (startDate || endDate) {
+    //   filter.date = {};
+    //   if (startDate) filter.date.$gte = new Date(startDate);
+    //   if (endDate) filter.date.$lte = new Date(endDate);
+    // }
+    // if (category) filter.category = category;
+    // if (type) filter.type = type;
+
+    // // Pagination
+    // const skip = (page - 1) * limit;
+
+    // // Fetch transactions and total count in parallel
+    // const [transactions, total] = await Promise.all([
+    //   Transaction.find(filter)
+    //     .sort({ date: -1, createdAt: -1 })
+    //     .skip(skip)
+    //     .limit(limit),
+    //   Transaction.countDocuments(filter),
+    // ]);
+
+    // const totalPages = Math.ceil(total / limit);
+
+    // res.json({
+    //   success: true,
+    //   data: {
+    //     transactions,
+    //     pagination: {
+    //       currentPage: page,
+    //       totalPages,
+    //       totalItems: total,
+    //       itemsPerPage: limit,
+    //     },
+    //   },
+    // });
     const filter: any = { userId };
+
     if (startDate || endDate) {
       filter.date = {};
       if (startDate) filter.date.$gte = new Date(startDate);
@@ -35,19 +73,32 @@ export const getTransactions = async (req: Request, res: Response) => {
     if (category) filter.category = category;
     if (type) filter.type = type;
 
-    // Pagination
-    const skip = (page - 1) * limit;
+    // Cursor-based pagination (preferred over skip/limit)
+    if (lastDate) {
+      filter.date = { ...(filter.date || {}), $lt: new Date(lastDate) };
+    }
 
-    // Fetch transactions and total count in parallel
-    const [transactions, total] = await Promise.all([
-      Transaction.find(filter)
-        .sort({ date: -1, createdAt: -1 })
-        .skip(skip)
-        .limit(limit),
-      Transaction.countDocuments(filter),
-    ]);
+    // Fetch transactions
+    const transactions = await Transaction.find(filter, {
+      amount: 1,
+      description: 1,
+      date: 1,
+      type: 1,
+      category: 1,
+      createdAt: 1,
+    })
+      .sort({ date: -1, createdAt: -1 })
+      .limit(limit + 1) // fetch one extra to check if next page exists
+      .lean();
 
-    const totalPages = Math.ceil(total / limit);
+    // if (!transactions) {
+    //   return res.status(401).json({ error: "No transaction data !!" });
+    // }
+    const hasNextPage = transactions.length > limit;
+    if (hasNextPage) transactions.pop(); // remove extra doc
+
+    // Count only if you really need total pages
+    const totalItems = await Transaction.countDocuments(filter);
 
     res.json({
       success: true,
@@ -55,9 +106,13 @@ export const getTransactions = async (req: Request, res: Response) => {
         transactions,
         pagination: {
           currentPage: page,
-          totalPages,
-          totalItems: total,
           itemsPerPage: limit,
+          totalItems,
+          hasNextPage,
+          nextCursor:
+            transactions.length > 0
+              ? transactions[transactions.length - 1]?.date
+              : null,
         },
       },
     });

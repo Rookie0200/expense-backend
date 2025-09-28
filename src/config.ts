@@ -19,6 +19,17 @@ export const connectToDB = async () => {
       return;
     }
     await mongoose.connect(dbUrl);
+    mongoose.connection.on("connected", () => {
+      console.log("✅ MongoDB connected at", dbUrl);
+    });
+
+    mongoose.connection.on("error", (err) => {
+      console.error("❌ MongoDB connection error:", err);
+    });
+
+    mongoose.connection.on("disconnected", () => {
+      console.warn("⚠️ MongoDB disconnected");
+    });
   } catch (error) {
     console.error("Error connecting to the database:", error);
     process.exit(1);
