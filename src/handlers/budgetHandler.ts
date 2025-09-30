@@ -2,6 +2,7 @@ import { Request, Response } from "express";
 import { Budget } from "../models/budget";
 import { Transaction } from "../models/transaction";
 import { budgetSchema, budgetUpdateSchema } from "../types/budget";
+import mongoose from "mongoose";
 
 export const createBudget = async (req: Request, res: Response) => {
   try {
@@ -105,19 +106,26 @@ export const getBudgetVsActual = async (req: Request, res: Response) => {
 
     // Get budgets for the month
     const budgets = await Budget.find({ userId, month });
+    console.log("Budget from DB :", budgets)
 
     // Get actual spending for the month
     const startDate = new Date(`${month}-01`);
+    console.log("startDate for actual spending : ", startDate)
     const endDate = new Date(
       startDate.getFullYear(),
       startDate.getMonth() + 1,
-      0
+      0,
+      23,
+      59,
+      59,
+      999
     );
-
+ const userObjectId = new mongoose.Types.ObjectId(userId);
+    console.log("endDate for actual spending : ", endDate)
     const actualSpending = await Transaction.aggregate([
       {
         $match: {
-          userId: userId,
+          userId: userObjectId,
           type: "expense",
           date: { $gte: startDate, $lte: endDate },
         },
@@ -129,12 +137,14 @@ export const getBudgetVsActual = async (req: Request, res: Response) => {
         },
       },
     ]);
+    console.log("the actualSpending from database :", actualSpending)
 
     // Create spending map
     const spendingMap = new Map();
     actualSpending.forEach((item) => {
       spendingMap.set(item._id, item.total);
     });
+    console.log("the spending map has :" ,spendingMap)
 
     // Compare budget vs actual
     const comparison = budgets.map((budget) => {
@@ -154,6 +164,7 @@ export const getBudgetVsActual = async (req: Request, res: Response) => {
       };
     });
 
+    console.log("the comparison has value :", comparison)
     res.json({
       success: true,
       data: { comparison },
