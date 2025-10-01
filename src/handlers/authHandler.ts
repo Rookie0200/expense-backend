@@ -65,9 +65,13 @@ export const loginUser = async (req: Request, res: Response) => {
       return;
     }
     // Create session token
+    if (!process.env.JWT_SECRET) {
+      res.status(400).json({ message: "JWT_SECRET key not found!!" });
+      return;
+    }
     const sessionToken = jwt.sign(
       { userId: user._id },
-      process.env.JWT_SECRET || "defaultsecret",
+      process.env.JWT_SECRET,
       { expiresIn: "24h" }
     );
     const plainUser = user.toObject();
