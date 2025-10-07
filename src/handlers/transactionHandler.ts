@@ -1,4 +1,5 @@
 import { Request, Response } from "express";
+import {getMonthStartEndDates} from "../config"
 // import { Transaction } from "../models/budget";
 import { Transaction } from "../models/transaction";
 import {
@@ -6,6 +7,7 @@ import {
   transactionSchema,
   transactionUpdateSchema,
 } from "../types/transaction";
+import mongoose from "mongoose";
 
 //
 
@@ -224,4 +226,108 @@ export const getTransactionStats = async (req: Request, res: Response) => {
       categoryStats,
     },
   });
+};
+
+export const getOverview = async (
+  req: Request,
+  res: Response
+) => {
+  try {
+    const userId = req.userId; // Assuming user is authenticated and ID is available
+    const { date } = req.query; // Expecting 'YYYY-MM' format, e.g., '2025-10'
+
+    if (!date) {
+      return res
+        .status(400)
+        .json({ message: "Date query parameter (YYYY-MM) is required." });
+    }
+
+    const { startDate, endDate } = getMonthStartEndDates(date as string);
+
+    // 1. Calculate Total Income and Total Expenses for the current month
+    const monthlyStats = await Transaction.aggregate([
+      {
+        $match: {
+          user: new mongoose.Types.ObjectId(userId),
+          date: { $gte: startDate, $lte: endDate },
+        },
+      },
+      {
+        $group: {
+          _id: "$type",
+          totalAmount: { $sum: "$amount" },
+        },
+      },
+      {
+        $project: {
+          _id: 0,
+          type: "$_id",
+          totalAmount: 1,
+        },
+      },
+    ]);
+
+    let totalIncome = 0;
+    let totalExpenses = 0;
+
+    monthlyStats.forEach((stat) => {
+      if (stat.type === "income") {
+        totalIncome = stat.totalAmount;
+      } else if (stat.type === "expense") {
+        // Assuming expenses are stored as positive numbers in the DB
+        totalExpenses = stat.totalAmount;
+      }
+    });
+
+    // 2. Calculate Opening Balance: Sum of all transactions BEFORE the start of the current month
+    const previousBalanceResult = await Transaction.aggregate([
+      {
+        $match: {
+          user: new mongoose.Types.ObjectId(userId),
+          date: { $lt: startDate }, // Transactions before the current month
+        },
+      },
+      {
+        $group: {
+          _id: null,
+          netBalance: {
+            $sum: {
+              $cond: [
+                { $eq: ["$type", "income"] },
+                "$amount",
+                { $multiply: ["$amount", -1] }, // Subtract expenses
+              ],
+            },
+          },
+        },
+      },
+    ]);
+
+    // Add a mock initial balance if no prior transactions exist
+    const MOCK_INITIAL_SEED_BALANCE = 5000;
+    const priorNetBalance =
+      previousBalanceResult.length > 0
+        ? previousBalanceResult[0].netBalance
+        : 0;
+
+    const openingBalance = MOCK_INITIAL_SEED_BALANCE + priorNetBalance;
+
+    // 3. Calculate Closing Balance
+    const closingBalance = openingBalance + totalIncome - totalExpenses;
+
+    return res.json({
+      data: {
+        openingBalance,
+        totalIncome,
+        totalExpenses,
+        closingBalance,
+        month: startDate.toISOString().substring(0, 7), // YYYY-MM
+      },
+    });
+  } catch (error) {
+    console.error("Error fetching dashboard stats:", error);
+    return res
+      .status(500)
+      .json({ message: "Failed to fetch dashboard statistics." });
+  }
 };

@@ -35,6 +35,17 @@ export const connectToDB = async () => {
     process.exit(1);
   }
 };
+export function getMonthStartEndDates(monthYear: string): { startDate: Date; endDate: Date } {
+    const [yearStr, monthStr] = monthYear.split('-');
+    const year = parseInt(yearStr as string);
+    const month = parseInt(monthStr as string) - 1; // Months are 0-indexed in JS Date
+
+    const startDate = new Date(year, month, 1);
+    const endDate = new Date(year, month + 1, 0); // Day 0 of the next month is the last day of the current month
+    endDate.setHours(23, 59, 59, 999); // Set to the end of the day
+
+    return { startDate, endDate };
+}
 
 //types definations
 // export const regesterUsers = zod.object({

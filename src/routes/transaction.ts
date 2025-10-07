@@ -5,6 +5,7 @@ import {
   updateTransaction,
   deleteTransaction,
   getTransactionStats,
+  getOverview
 } from "../handlers/transactionHandler";
 
 import authMiddleware from "../middlewares/authMiddleware";
@@ -18,6 +19,7 @@ router.post("/add", addTransaction);
 router.put("/update/:id", updateTransaction);
 router.delete("/delete/:id", deleteTransaction);
 router.get("/stats", getTransactionStats);
+router.get("/overview",getOverview)
 
 // Budget routes
 // router.get("/budgets", getBudgets);
